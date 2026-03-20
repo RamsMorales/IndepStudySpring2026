@@ -1,7 +1,7 @@
 from sklearn.neighbors import NearestNeighbors
 import numpy as np
 
-def construct_adjacency_graph(X, n_neighbors, weight_method=["weighted","simple"]):
+def construct_adjacency_graph(X, n_neighbors, weight_method="simple"):
     """
     Input: 
         X: matrix or array of points
@@ -105,11 +105,10 @@ def eigen_decomposition(X,t, n_neighbors, method="weighted"):
             4. Solve the eigenvalue problem Lv = lambda v
 
         The embedding is given by the eigenvectors corresponding to the smallest
-        non-zero eigenvalues. The first eigenvalue (0) is discarded as it corresponds
-        to the trivial constant eigenvector.
+        non-zero eigenvalues.
     """
 
-    graph = construct_adjacency_graph(X,n_neighbors,method=method)
+    graph = construct_adjacency_graph(X,n_neighbors,weight_method=method)
 
     if method == "weighted":
         values, vectors =  np.linalg.eigh(construct_laplacian(add_weights(graph,t).toarray()))
