@@ -1,27 +1,30 @@
 from sklearn.neighbors import NearestNeighbors
+from scipy.sparse import csr_matrix
+from scipy.linalg import eigh
 import numpy as np
 
-def construct_adjacency_graph(X, n_neighbors, weight_method="simple"):
+
+def construct_adjacency_graph(X, n_neighbors, weight_method="simple") -> csr_matrix:
     """
-    Input: 
+    Input:
         X: matrix or array of points
         n_neighbors: number of neighbors
 
     Output:
         matrix of adjacency with distance if there is an edge 0 if not
 
-        The A.maximum(A.T) is used because the kneighbors_graph is directed, not symmetric. 
+        The A.maximum(A.T) is used because the kneighbors_graph is directed, not symmetric.
         Using the definition of the graph laplacian from:
 
-            Belkin, M. & Niyogi, P. (2003). 
-            Laplacian Eigenmaps for Dimensionality Reduction and Data Representation. 
+            Belkin, M. & Niyogi, P. (2003).
+            Laplacian Eigenmaps for Dimensionality Reduction and Data Representation.
             Neural Computation, 15(6), 1373–1396.
-        
+
         They define an edge existing if i $\\in$ neigbors of j OR j $\\in$ neighbors of i.
         The form A.maximum(A.T) yields this definition. If point i $\\in$ neigbors of j then,
         the graph a_{ij} = d for the distance between them. then there are two cases:
 
-            a) j $\\in$ neigbors of i  then, a_{ji} = d. So, max(a_{ij},a_{ji}) = d and the 
+            a) j $\\in$ neigbors of i  then, a_{ji} = d. So, max(a_{ij},a_{ji}) = d and the
             resulting graph has both. No change is made to the resultant graph
 
             b) j $\\nin$ neigbors of i  then, a_{ji} = 0. So, max(a_{ij},a_{ji}) = d so the
@@ -35,13 +38,12 @@ def construct_adjacency_graph(X, n_neighbors, weight_method="simple"):
     ## Calling class object. This step does not make the graph, just pre defines index for efficient computing
     neigbors = NearestNeighbors(n_neighbors=n_neighbors).fit(X)
     ## Creating graph adjacency matrix representation such that at joining points we have distance between neighbors
-    neighborGraph = neigbors.kneighbors_graph(X, mode = mode)
+    neighborGraph = neigbors.kneighbors_graph(X, mode=mode)
 
-    return  neighborGraph.maximum(neighborGraph.T) 
+    return neighborGraph.maximum(neighborGraph.T)
 
 
-
-def add_weights(graph,t):
+def add_weights(graph, t) -> csr_matrix:
     """
     Input:
         graph: sparse CSR matrix of adjacency with Euclidean distances as edge values
@@ -52,8 +54,8 @@ def add_weights(graph,t):
 
         Applies the heat kernel weighting scheme from:
 
-            Belkin, M. & Niyogi, P. (2003). 
-            Laplacian Eigenmaps for Dimensionality Reduction and Data Representation. 
+            Belkin, M. & Niyogi, P. (2003).
+            Laplacian Eigenmaps for Dimensionality Reduction and Data Representation.
             Neural Computation, 15(6), 1373–1396.
 
         For connected nodes i and j:
@@ -63,11 +65,11 @@ def add_weights(graph,t):
         The operation acts only on the .data array of the sparse matrix, which contains
         the stored nonzero entries. Zero entries are never materialized, preserving sparsity.
     """
-    graph.data = np.exp((graph.data ** 2) * (-1/t))
+    graph.data = np.exp((graph.data**2) * (-1 / t))
     return graph
 
 
-def construct_laplacian(weightedGraph :np.ndarray):
+def construct_laplacian(weightedGraph: csr_matrix) -> np.ndarray:
     """
     Input:
         weightedGraph: symmetric matrix of edge weights (dense array)
@@ -83,10 +85,15 @@ def construct_laplacian(weightedGraph :np.ndarray):
         with eigenvector equal to the constant vector. The multiplicity of the zero
         eigenvalue equals the number of connected components in the graph.
     """
-    D = np.diag(np.sum(weightedGraph,axis=0))
-    return D - weightedGraph 
+    W = weightedGraph.toarray()
+    D = np.diag(np.sum(W, axis=0))
+    L = D - W
+    D_inv_sqrt = np.diag(1 / np.sqrt(np.diag(D)))
 
-def eigen_decomposition(X,t, n_neighbors, method="weighted"):
+    return D_inv_sqrt @ L @ D_inv_sqrt
+
+
+def eigen_decomposition(X, t, n_neighbors, method="weighted"):
     """
     Input:
         X: matrix or array of data points in R^l
@@ -108,13 +115,17 @@ def eigen_decomposition(X,t, n_neighbors, method="weighted"):
         non-zero eigenvalues.
     """
 
-    graph = construct_adjacency_graph(X,n_neighbors,weight_method=method)
-
+    graph = construct_adjacency_graph(X, n_neighbors, weight_method=method)
+    symmetric_laplacian = construct_laplacian(graph)
     if method == "weighted":
-        values, vectors =  np.linalg.eigh(construct_laplacian(add_weights(graph,t).toarray()))
-        
+        values, vectors = eigh(symmetric_laplacian)
+
     else:
-        values, vectors =  np.linalg.eigh(construct_laplacian(graph.toarray()))
-    
+        values, vectors = eigh(construct_laplacian(graph.toarray()))
+
     return values, vectors
 
+
+def get_projection_metrix(data, vectors, n_comp):
+    projection_matrix = vectors[:, 1 : n_comp + 1]
+    return data @ data.T @ projection_matrix
