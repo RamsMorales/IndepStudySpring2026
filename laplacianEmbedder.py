@@ -69,7 +69,7 @@ def add_weights(graph, t) -> csr_matrix:
     return graph
 
 
-def construct_laplacian(weightedGraph: csr_matrix) -> np.ndarray:
+def construct_laplacian(weightedGraph: csr_matrix) -> tuple[np.ndarray,np.ndarray]:
     """
     Input:
         weightedGraph: symmetric matrix of edge weights (dense array)
@@ -90,7 +90,7 @@ def construct_laplacian(weightedGraph: csr_matrix) -> np.ndarray:
     L = D - W
     D_inv_sqrt = np.diag(1 / np.sqrt(np.diag(D)))
 
-    return D_inv_sqrt @ L @ D_inv_sqrt
+    return D_inv_sqrt @ L @ D_inv_sqrt, D_inv_sqrt
 
 
 def eigen_decomposition(X, t, n_neighbors, method="weighted"):
@@ -116,14 +116,14 @@ def eigen_decomposition(X, t, n_neighbors, method="weighted"):
     """
 
     graph = construct_adjacency_graph(X, n_neighbors, weight_method=method)
-    symmetric_laplacian = construct_laplacian(graph)
+    symmetric_laplacian, inverse_sqrt_degree_mat = construct_laplacian(graph)
     if method == "weighted":
         values, vectors = eigh(symmetric_laplacian)
 
     else:
         values, vectors = eigh(construct_laplacian(graph.toarray()))
 
-    return values, vectors
+    return values, vectors, inverse_sqrt_degree_mat
 
 
 def get_projection_metrix(data, vectors, n_comp):

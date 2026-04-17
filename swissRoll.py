@@ -16,8 +16,11 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 n_samples = 2000
-random_state = 23 
-# random_state = None
+#  random_state = 400
+random_state = None
+
+N = 5
+t = 5
 
 
 X, color = datasets.make_swiss_roll(n_samples=n_samples, random_state=random_state)
@@ -25,7 +28,9 @@ X, color = datasets.make_swiss_roll(n_samples=n_samples, random_state=random_sta
 adjacencyGraph = construct_adjacency_graph(X, 50, "weighted")
 
 
-values, vectors = eigen_decomposition(X, t=15.0, n_neighbors=5, method="weighted")
+values, vectors, transforming_mat = eigen_decomposition(
+    X, t=t, n_neighbors=N, method="weighted"
+)
 labels = [f"l{i}" for i in range(0, len(values))]
 
 chosen_vector_1 = 1
@@ -34,18 +39,19 @@ chosen_vector_2 = 2
 eigen_value_df = pd.DataFrame({"Energy Levels": values}, labels)
 print(eigen_value_df)
 
-plot_energies = False 
+plot_energies = False
 if plot_energies:
     sns.barplot(eigen_value_df, x=labels, y="Energy Levels")
     plt.show()  # claim: the eigen values are increasting which lines up with expectation
 
 # Creating plot
-sns.scatterplot(
-    x=vectors[:, chosen_vector_1],
-    y=vectors[:, chosen_vector_2],
+plt.scatter(
+    x=transforming_mat @ vectors[:, chosen_vector_1],
+    y=transforming_mat @ vectors[:, chosen_vector_2],
     c=color,
-    palette="Spectral",
+    cmap="turbo",
 )
+plt.title(f"N = {N} t = {t}")
 plt.show()
 
 # # Side by side plot
@@ -70,14 +76,14 @@ plt.show()
 fig = plt.figure(figsize=(14, 10))
 
 # Top left: original swiss roll
-ax1 = fig.add_subplot(221, projection='3d')
+ax1 = fig.add_subplot(221, projection="3d")
 ax1.scatter(X[:, 0], X[:, 1], X[:, 2], c=color, cmap="Spectral_r", s=5)
 ax1.set_title("Original Swiss Roll")
 
 # Top right: embedding
 ax2 = fig.add_subplot(222)
 ax2.scatter(vectors[:, 1], vectors[:, 2], c=color, cmap="Spectral_r", s=5)
-ax2.set_title("Laplacian Eigenmaps Embedding")
+ax2.set_title(f"Laplacian Eigenmaps Embedding N - {N} t -{t}")
 
 # Bottom center: eigenvalues
 ax3 = fig.add_subplot(212)
